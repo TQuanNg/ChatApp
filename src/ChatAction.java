@@ -24,18 +24,19 @@ public class ChatAction {
     private Account account;
     private Scanner scnr;
     private String userID;
+	private Thread listeningThread;
 
     public ChatAction(Socket socket, Scanner scnr, Account account) {
         try {
             this.socket = socket;
-            this.bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            this.bufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+            //this.bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            //this.bufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
             this.username = account.getUsername();
             this.account = account;
             this.scnr = scnr;
 			connection = Utility.connectToDatabase();
             setID();
-        } catch (IOException e) {
+        } catch (Exception e) {
             closeAll(socket, bufferedReader, bufferedWriter);
         }
     }
@@ -51,6 +52,7 @@ public class ChatAction {
 				userID = rs.getString("id");
 			}
 			stmt.close();
+			connection.close();
 		}
 		catch(Exception e) {
 			Utility.onException(e);
@@ -105,14 +107,14 @@ public class ChatAction {
 			chatroomName = scnr.nextLine();
 		}
 		System.out.println(chatroomName);
-		
+		connection = Utility.connectToDatabase();
 		if(ifChatroomExist(chatroomName)) {
 			inChatroom = true;
+			establishBufferConnection();
 			updateChatroomColumnInAccTable(chatroomName);
 			printChatroomWelcomeMsg(chatroomName);
             listenForMessages();
 			handleChat();
-			System.out.println("RETURN \n");
 		}
 	}
 
@@ -120,9 +122,12 @@ public class ChatAction {
 		System.out.print("-c ");
 		chatroomName = scnr.nextLine();
 		System.out.println(chatroomName);
-		
+
+		connection = Utility.connectToDatabase();
+
 		if(validateChatroomName(chatroomName) && ifChatroomExisted(chatroomName)) {
 			inChatroom = true;
+			establishBufferConnection();
 			createNewChatroomTableSql(chatroomName);
 			updateChatroomColumnInAccTable(chatroomName);
 			printChatroomWelcomeMsg(chatroomName);
@@ -131,6 +136,16 @@ public class ChatAction {
 		}
 		else {
 			userPrompt();
+		}
+	}
+
+	public void establishBufferConnection() {
+		try {
+			this.bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            this.bufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+		}
+		catch(IOException e) {
+			closeAll(socket, bufferedReader, bufferedWriter);
 		}
 	}
 
@@ -220,7 +235,7 @@ public class ChatAction {
 
     public void handleChat() {
         String newMsg;
-		System.out.println("Insideeesssssse\n");
+		//System.out.println("Insideeesssssse\n");
         while (inChatroom) {
             if (scnr.hasNextLine()) {
                 newMsg = scnr.nextLine().trim();
@@ -261,24 +276,26 @@ public class ChatAction {
     public void listenForMessages() {
         showHistory();
 		
-        new Thread(new Runnable() {
+        listeningThread = new Thread(new Runnable() {
         @Override
         public void run() {
             String messageFromGroupChat;
 
-            while (socket.isConnected()) {
+            while (socket.isConnected() && inChatroom) {
                 try {
-					System.out.println("Listening\n");
+					//System.out.println("Listening\n");
                     messageFromGroupChat = bufferedReader.readLine();
                     if (messageFromGroupChat != null) {
                         System.out.println(messageFromGroupChat);
                     }
                 } catch (IOException e) {
                     closeAll(socket, bufferedReader, bufferedWriter);
+					break;
                 }
             }
         }
-        }).start();
+        });
+		listeningThread.start();
     }
 
     private void showHistory() {
@@ -292,7 +309,7 @@ public class ChatAction {
 				String message = rs.getString("message");
 				System.out.println(username + ":> " + message);
 			}
-			System.out.println("That is all of history");
+			//System.out.println("That is all of history");
 			rs.close();
 			stmt.close();
 		}
@@ -337,12 +354,22 @@ public class ChatAction {
 
     private void leaveChatRoom() {
 		inChatroom = false;
+
+		stopListeningThread();
+
+		//closeAll(socket, bufferedReader, bufferedWriter); ////////////////////////////
 		updateChatroomColumnInAccTable("NULL");
 		try {
 			connection.close();
 		}
 		catch (Exception e) {
 			Utility.onException(e);
+		}
+	}
+
+	public void stopListeningThread() {
+		if (listeningThread != null && listeningThread.isAlive()) {
+			listeningThread.interrupt(); // Interrupt the thread
 		}
 	}
 

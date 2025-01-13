@@ -36,6 +36,9 @@ public class Main {
 
 
 // CUrrent problem 1/10/2025: when join or create chatroom, it show history and out the chat
+// 1/13/2025: joining different chatroom does not make different, still hearing from other chatroom
+	// potential fix: socket created in Account should be removed or moved to where joining/creating chatroom
+	// then a new socket is established, clienthandler need to be modified to work with chatroom name
 
 /*Reference:
 https://www.codejava.net/java-se/jdbc/how-to-use-scrollable-result-sets-with-jdbc
