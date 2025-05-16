@@ -9,8 +9,9 @@ public class ClientHandler implements Runnable {
     private BufferedWriter writer;
     private String clientUsername;
     public static ArrayList<ClientHandler> clientHandlers = new ArrayList<>();
+    private String chatroomName;
 
-    public ClientHandler(Socket socket/* , String username*/) {
+    public ClientHandler(Socket socket/* , String chatroomName*/) {
         try {
             this.socket = socket;
             this.reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -42,6 +43,16 @@ public class ClientHandler implements Runnable {
 
     public void closeAll(Socket socket, BufferedReader bufferedReader, BufferedWriter bufferedWriter) {
         removeClientHandler();
+        closeBuffer(bufferedReader, bufferedWriter);
+        closeSocket(socket);
+    }
+    
+    public void removeClientHandler() {
+        clientHandlers.remove(this);
+        broadcastMessage("SERVER: " + clientUsername + " has left the chat!");
+    }
+
+    public void closeBuffer(BufferedReader bufferedReader, BufferedWriter bufferedWriter) {
         try {
             if (bufferedReader != null) {
                 bufferedReader.close();
@@ -49,18 +60,23 @@ public class ClientHandler implements Runnable {
             if (bufferedWriter != null) {
                 bufferedWriter.close();
             }
-            if (socket != null) {
-                socket.close();
-            }
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    public void removeClientHandler() {
-        clientHandlers.remove(this);
-        broadcastMessage("SERVER: " + clientUsername + " has left the chat!");
+    public void closeSocket(Socket socket) {
+        try {
+            if (socket != null) {
+                socket.close();
+            }
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+        }
     }
+
 
     public void run() {
         String messageFromClient;

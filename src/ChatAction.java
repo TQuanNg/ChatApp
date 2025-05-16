@@ -144,7 +144,8 @@ public class ChatAction {
 			this.bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             this.bufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
 		}
-		catch(IOException e) {
+		catch(Exception e) {
+			e.printStackTrace();
 			closeAll(socket, bufferedReader, bufferedWriter);
 		}
 	}
